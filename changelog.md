@@ -8,6 +8,15 @@ platform tags, and Internal). Store “What’s New” / AMO notes are generated
 `scripts/changelog-to-store-whats-new.js` (excludes Internal; keeps untagged
 plus platform-relevant tags; strips markdown).
 
+## v6.9.2
+
+This update comes with some under-the-hood improvements.
+
+### Internal
+
+- [firefox] Adjusted the extension package to prepare for Firefox for Android
+  support.
+
 ## v6.9.1
 
 This update comes with some design improvements.
