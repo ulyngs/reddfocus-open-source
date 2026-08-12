@@ -4,6 +4,13 @@
 # scripts/build-edge-extension-zip.sh — Partner Center rejects the dual
 # background.service_worker + background.scripts keys in this package.
 #
+# Strips the `nativeMessaging` permission from the packaged manifest only
+# (never the committed source, which Xcode uses as-is for the Safari build).
+# background.js gates that whole feature behind IS_SAFARI (detected via
+# Safari's safari-web-extension:// scheme), so it's already dead code on
+# Chrome/Firefox — but Firefox for Android refuses to install any add-on
+# that merely declares the permission unless it's privileged-signed.
+#
 # Usage:
 #   ./scripts/build-extension-zip.sh
 #   ./scripts/build-extension-zip.sh 6.7.0
@@ -26,9 +33,30 @@ mkdir -p "$OUT_DIR"
 ZIP_NAME="digital-habits-focus-v${VERSION}.zip"
 ZIP_PATH="$OUT_DIR/$ZIP_NAME"
 
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+cp -R "$RESOURCES"/. "$TMP/"
+
+PACKAGE_TMP="$TMP" node <<'EOF'
+const fs = require('fs');
+const path = require('path');
+const manifestPath = path.join(process.env.PACKAGE_TMP, 'manifest.json');
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+if (!manifest.permissions || !manifest.permissions.includes('nativeMessaging')) {
+  console.error('Expected nativeMessaging permission in source manifest.');
+  process.exit(1);
+}
+manifest.permissions = manifest.permissions.filter((p) => p !== 'nativeMessaging');
+
+fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+console.log('Stripped nativeMessaging permission (Safari-only; blocks Firefox for Android installs).');
+EOF
+
 rm -f "$ZIP_PATH"
 (
-  cd "$RESOURCES"
+  cd "$TMP"
   zip -r "$ZIP_PATH" . \
     -x "*.DS_Store" \
     -x "**/.DS_Store" \
